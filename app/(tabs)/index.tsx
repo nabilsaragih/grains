@@ -1,75 +1,33 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { View, Text, Image, TouchableOpacity } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
+import { Link } from "expo-router";
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <LinearGradient colors={['#4FC025', '#0E2903']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} className="flex-1 items-center justify-center">
+      <Text className="text-6xl font-bold text-white font-montserrat" style={{ textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 4 }}>GRAINS</Text>
+      <Image source={require('../../assets/images/home-footer.png')} className="absolute w-full h-full" resizeMode="contain" />
+
+      <View className="mt-2 flex-row items-center justify-center">
+        <Text className="text-xs font-marcellus text-white mr-2">Gemma-based RAG for Intelligent</Text>
+        <Text className="text-4xl font-love-light text-white">Nutrition System</Text>
+      </View>
+
+      <View className="w-full px-6 mt-10">
+          <Link href="/(tabs)/login" asChild>
+            <TouchableOpacity className="bg-white w-full items-center px-6 py-3 rounded-3xl shadow-md active:opacity-80">
+              <Text className="text-[#126007] text-base font-montserrat-bold">Login</Text>
+            </TouchableOpacity>
+          </Link>
+      </View>
+
+      <View className="w-full px-6 mt-4 flex-row justify-center">
+        <Text className="text-white text-xs font-montserrat mr-1">Belum punya akun?</Text>
+        <TouchableOpacity className="active:opacity-80">
+          <Link className="text-white text-xs font-montserrat underline underline-offset-4" href="/(tabs)/signup">Daftar sekarang</Link>
+        </TouchableOpacity>
+      </View>
+
+    </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
