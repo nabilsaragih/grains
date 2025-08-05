@@ -51,7 +51,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
           </View>
-
           
           <View className="w-full mb-2">
             <Link href="/(tabs)/login" asChild>
