@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialIcons";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { Link } from "expo-router";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <View className="flex-1 flex-col">
@@ -24,14 +26,32 @@ export default function LoginScreen() {
         <Text className="text-2xl font-montserrat-bold mt-6">Selamat Datang!</Text>
         <View className="bg-white w-full h-full mt-16 flex-col flex-1 px-8">
           <View className="mb-6">
-            <Text className="mb-2 px-5">Email</Text>
-            <TextInput className="border border-black rounded-3xl px-5" placeholder="Masukkan email anda" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+            <Text className="mb-2 px-5 font-montserrat-bold">Email</Text>
+            <TextInput className="border border-black rounded-3xl px-5 font-montserrat" placeholder="Masukkan email anda" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           </View>
 
-          <View className="mb-10">
-            <Text className="mb-2 px-5">Password</Text>
-            <TextInput className="border border-black rounded-3xl px-5" placeholder="Masukkan password anda" value={password} onChangeText={setPassword} secureTextEntry />
+          <View className="mb-12">
+            <Text className="mb-2 px-5 font-montserrat-bold">Password</Text>
+
+            <View className="flex-row items-center border border-black rounded-3xl px-5">
+              <TextInput
+                className="flex-1 py-3 font-montserrat text-black"
+                placeholder="Masukkan password anda"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="pl-3">
+                {showPassword ? (
+                  <FontAwesome6 name="eye-slash" size={20} color="black" />
+                ) : (
+                  <FontAwesome6 name="eye" size={20} color="black" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
+
           
           <View className="w-full mb-2">
             <Link href="/(tabs)/login" asChild>
