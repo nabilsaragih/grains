@@ -21,10 +21,10 @@ export default function HomeScreen() {
           </Link>
       </View>
 
-      <View className="w-full px-6 mt-4 flex-row justify-center">
-        <Text className="text-white text-xs font-montserrat mr-1">Belum punya akun?</Text>
+      <View className="w-full px-6 mt-3 flex-row justify-center">
+        <Text className="text-white text-sm font-montserrat mr-1">Belum punya akun?</Text>
         <TouchableOpacity className="active:opacity-80">
-          <Link className="text-white text-xs font-montserrat underline underline-offset-4" href="/(tabs)/signup">Daftar sekarang</Link>
+          <Link className="text-white text-sm font-montserrat underline underline-offset-4" href="/(tabs)/signup">Daftar sekarang</Link>
         </TouchableOpacity>
       </View>
 
