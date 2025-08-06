@@ -11,6 +11,8 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1 bg-white">
+      <Image source={require('../../assets/images/home-footer.png')} className="absolute w-full h-full" resizeMode="contain" />
+
       {/* Header */}
       <View className="flex-none pt-16 px-8 py-4">
         <Link href="/" asChild>
