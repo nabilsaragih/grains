@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import manualStyles from '@/styles/manualStyles';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -66,7 +66,7 @@ export default function ManualScreen() {
       return;
     }
 
-    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event: { preventDefault: () => void; data?: { action?: { type?: string } } }) => {
       const actionType = event.data?.action?.type;
 
       if (actionType === 'GO_BACK' || actionType === 'POP' || actionType === 'POP_TO_TOP') {
