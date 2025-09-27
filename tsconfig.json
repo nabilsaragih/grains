@@ -1,4 +1,4 @@
-{
+﻿{
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -13,6 +13,7 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    "env.d.ts"
   ]
 }
