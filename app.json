@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "skripsi-app",
+    "name": "Grains: Nutrition Recommender",
     "slug": "skripsi-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.nabilsaragih.skripsiapp"
     },
     "web": {
       "bundler": "metro",
@@ -35,10 +36,18 @@
         }
       ],
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "331b66cd-fa73-4abe-a377-51b697fccaf6"
+      }
+    },
+    "owner": "nabilsaragih"
   }
 }

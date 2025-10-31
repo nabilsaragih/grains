@@ -7,7 +7,6 @@ const signupStyles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 50,
-    paddingTop: 100,
   },
   field: {
     marginBottom: 24,

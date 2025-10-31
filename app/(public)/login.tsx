@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,71 +12,48 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import FooterWave from '@/components/FooterWave';
-import FeedbackModal from '@/components/FeedbackModal';
 import loginStyles from '@/styles/loginStyles';
 import { useKeyboardOffset } from '@/hooks/useKeyboardOffset';
-import { isStrongPassword, isValidEmail } from '@/utils/validators';
-import { useAuth } from '@/contexts/AuthContext';
-
-function getFriendlyAuthError(message?: string) {
-  if (!message) {
-    return 'Terjadi kesalahan saat login.';
-  }
-
-  if (/invalid login credentials/i.test(message)) {
-    return 'Email atau password salah.';
-  }
-
-  if (/invalid api key/i.test(message)) {
-    return 'Email atau password salah atau akun belum terdaftar.';
-  }
-
-  if (/email not confirmed/i.test(message)) {
-    return 'Silakan verifikasi email Anda sebelum login.';
-  }
-
-  return message;
-}
+import { useAuth } from '@/src/auth/AuthProvider';
+import AppModal from '@/components/AppModal';
+import PasswordInput from '@/src/components/forms/PasswordInput';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, user, isLoading } = useAuth();
+  const { login, isAuthenticated, isReady } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isModalVisible, setModalVisible] = useState(false);
 
   const keyboardOffset = useKeyboardOffset();
   const keyboardVerticalOffset = Platform.OS === 'ios' ? 80 : 0;
-  const isFeedbackVisible = useMemo(() => Boolean(feedbackMessage), [feedbackMessage]);
-  const footerOffsetStyle = useMemo(() => (keyboardOffset ? { bottom: -keyboardOffset } : undefined), [keyboardOffset]);
+  const footerOffsetStyle = useMemo(
+    () => (keyboardOffset ? { bottom: -keyboardOffset } : undefined),
+    [keyboardOffset],
+  );
 
   const resetState = useCallback(() => {
     setEmail('');
     setPassword('');
-    setShowPassword(false);
     setIsSubmitting(false);
-    setFeedbackMessage(null);
+    setErrorMessage(null);
+    setModalVisible(false);
   }, []);
 
   const handleBack = useCallback(() => {
-    if (user) {
-      router.replace('/(tabs)/manual');
-    } else {
-      router.replace('/');
-    }
-  }, [router, user]);
+    router.replace('/');
+  }, [router]);
 
   useEffect(() => {
-    if (!isLoading && user) {
-      router.replace('/(tabs)/manual?entry=login');
+    if (isReady && isAuthenticated) {
+      router.replace('/(app)/manual');
     }
-  }, [isLoading, router, user]);
+  }, [isAuthenticated, isReady, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,8 +63,9 @@ export default function LoginScreen() {
     }, [resetState]),
   );
 
-  const showFeedback = (message: string) => {
-    setFeedbackMessage(message);
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setModalVisible(true);
   };
 
   const handleLogin = async () => {
@@ -93,28 +73,19 @@ export default function LoginScreen() {
     const normalizedPassword = password.trim();
 
     if (!normalizedEmail || !normalizedPassword) {
-      showFeedback('Harap lengkapi email dan password Anda.');
-      return;
-    }
-
-    if (!isValidEmail(normalizedEmail)) {
-      showFeedback('Format email tidak valid.');
-      return;
-    }
-
-    if (!isStrongPassword(normalizedPassword)) {
-      showFeedback('Password minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.');
+      showError('Harap lengkapi email dan password Anda.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await signIn({ email: normalizedEmail, password: normalizedPassword });
+      await login(normalizedEmail, normalizedPassword);
+      router.replace('/(app)/manual');
     } catch (error) {
-      const rawMessage = error instanceof Error ? error.message : undefined;
-      const friendlyMessage = getFriendlyAuthError(rawMessage);
-      showFeedback(friendlyMessage);
+      const message =
+        error instanceof Error ? error.message : 'Terjadi kesalahan saat login. Silakan coba lagi.';
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +100,7 @@ export default function LoginScreen() {
           keyboardVerticalOffset={keyboardVerticalOffset}
         >
           <View className="flex-1 bg-white">
-            <View className="flex-none pt-16 px-8 py-4">
+            <View className="flex-none px-8 py-4 pt-16">
               <TouchableOpacity onPress={handleBack}>
                 <MaterialIcons name="keyboard-backspace" size={36} color="black" />
               </TouchableOpacity>
@@ -141,7 +112,7 @@ export default function LoginScreen() {
               <View className="mt-8 mb-6">
                 <Text className="mb-2 px-5 font-montserrat-bold">Email</Text>
                 <TextInput
-                  className="border border-black rounded-3xl px-5 font-montserrat"
+                  className="rounded-3xl border border-black px-5 font-montserrat"
                   style={loginStyles.inputText}
                   placeholder="Masukkan email anda"
                   placeholderTextColor="#9CA3AF"
@@ -154,33 +125,23 @@ export default function LoginScreen() {
 
               <View className="mb-4">
                 <Text className="mb-2 px-5 font-montserrat-bold">Password</Text>
-                <View className="flex-row items-center border border-black rounded-3xl px-5">
-                  <TextInput
-                    className="flex-1 py-3 font-montserrat"
-                    style={loginStyles.inputText}
-                    placeholder="Masukkan password anda"
-                    placeholderTextColor="#9CA3AF"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} className="pl-3">
-                    <FontAwesome6
-                      name={showPassword ? 'eye-slash' : 'eye'}
-                      size={20}
-                      color={showPassword ? '#1A770A' : '#111111'}
-                    />
-                  </TouchableOpacity>
-                </View>
+                <PasswordInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Masukkan password anda"
+                  placeholderTextColor="#9CA3AF"
+                  style={loginStyles.inputText}
+                />
               </View>
 
-              <View className="w-full mb-2">
+              <View className="mb-2 w-full">
                 <TouchableOpacity
-                  className={`bg-[#1A770A] w-full items-center rounded-3xl py-3 shadow-md active:opacity-80 ${
-                    isSubmitting || isLoading ? 'opacity-70' : ''
+                  className={`w-full items-center rounded-3xl bg-[#1A770A] py-3 shadow-md ${
+                    isSubmitting ? 'opacity-70' : ''
                   }`}
                   onPress={handleLogin}
-                  disabled={isSubmitting || isLoading}
+                  disabled={isSubmitting}
+                  activeOpacity={0.85}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="#fff" />
@@ -190,10 +151,12 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View className="mb-6 mt-2 flex-row justify-center">
+              <View className="mt-2 mb-6 flex-row justify-center">
                 <Text className="mr-1 text-sm font-montserrat-bold text-black">Belum punya akun?</Text>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/signup')}>
-                  <Text className="text-sm font-montserrat-bold text-[#2A730B] underline underline-offset-4">Daftar</Text>
+                  <Text className="text-sm font-montserrat-bold text-[#2A730B] underline underline-offset-4">
+                    Daftar
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -203,15 +166,13 @@ export default function LoginScreen() {
         <FooterWave style={[loginStyles.footerWave, footerOffsetStyle]} />
       </View>
 
-      {isFeedbackVisible && feedbackMessage && (
-        <FeedbackModal message={feedbackMessage} onClose={() => setFeedbackMessage(null)} />
-      )}
+      <AppModal
+        visible={isModalVisible}
+        title="Login Gagal"
+        message={errorMessage ?? 'Terjadi kesalahan. Silakan coba lagi.'}
+        type="error"
+        onClose={() => setModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
-
-
-
-
-
-

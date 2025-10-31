@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+'use client';
+
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -18,15 +19,15 @@ import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import signupStyles from '@/styles/signupStyles';
-import FeedbackModal from '@/components/FeedbackModal';
 import { isStrongPassword, isValidEmail } from '@/utils/validators';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import AppModal from '@/components/AppModal';
+import PasswordInput from '@/src/components/forms/PasswordInput';
 
 const genderOptions = ['Laki-laki', 'Perempuan'];
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { signUp, user, isLoading } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,21 +37,26 @@ export default function SignupScreen() {
   const [medicalHistory, setMedicalHistory] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [isGenderModalVisible, setGenderModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+    onClose?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error',
+  });
 
-  const formattedDate = useMemo(() => (selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : ''), [selectedDate]);
-  const isFeedbackVisible = useMemo(() => Boolean(feedbackMessage), [feedbackMessage]);
-  const handleBack = useCallback(() => {
-    if (user) {
-      router.replace('/(tabs)/manual');
-    } else {
-      router.replace('/');
-    }
-  }, [router, user]);
+  const formattedDate = useMemo(
+    () => (selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : ''),
+    [selectedDate],
+  );
 
   const resetState = useCallback(() => {
     setFullName('');
@@ -61,18 +67,16 @@ export default function SignupScreen() {
     setMedicalHistory('');
     setHeight('');
     setWeight('');
-    setShowPassword(false);
-    setIsSubmitting(false);
     setDatePickerVisible(false);
     setGenderModalVisible(false);
-    setFeedbackMessage(null);
+    setIsSubmitting(false);
+    setModalConfig({
+      visible: false,
+      title: '',
+      message: '',
+      type: 'error',
+    });
   }, []);
-
-  useEffect(() => {
-    if (!isLoading && user) {
-      router.replace('/');
-    }
-  }, [isLoading, router, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,8 +86,32 @@ export default function SignupScreen() {
     }, [resetState]),
   );
 
-  const showFeedback = (message: string) => {
-    setFeedbackMessage(message);
+  const showModal = useCallback(
+    ({ title, message, type, onClose }: { title: string; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }) => {
+      setModalConfig({
+        visible: true,
+        title,
+        message,
+        type,
+        onClose,
+      });
+    },
+    [],
+  );
+
+  const closeModal = useCallback(() => {
+    setModalConfig((prev) => {
+      prev.onClose?.();
+      return { ...prev, visible: false, onClose: undefined };
+    });
+  }, []);
+
+  const showError = (message: string) => {
+    showModal({
+      title: 'Registrasi Gagal',
+      message,
+      type: 'error',
+    });
   };
 
   const handleSignup = async () => {
@@ -91,43 +119,52 @@ export default function SignupScreen() {
     const normalizedPassword = password.trim();
 
     if (!normalizedEmail || !normalizedPassword) {
-      showFeedback('Email dan password wajib diisi.');
+      showError('Email dan password wajib diisi.');
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      showFeedback('Format email tidak valid.');
+      showError('Format email tidak valid.');
       return;
     }
 
     if (!isStrongPassword(normalizedPassword)) {
-      showFeedback('Password minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.');
+      showError('Password minimal 8 karakter dengan kombinasi huruf, angka, dan simbol.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await signUp({
+      const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: normalizedPassword,
-        fullName,
-        birthDate: formattedDate,
-        gender: selectedGender,
-        medicalHistory,
-        height,
-        weight,
+        options: {
+          data: {
+            full_name: fullName || undefined,
+            birth_date: formattedDate || undefined,
+            gender: selectedGender || undefined,
+            medical_history: medicalHistory || undefined,
+            height: height || undefined,
+            weight: weight || undefined,
+          },
+        },
       });
 
-      Alert.alert('Registrasi berhasil', 'Silakan cek email Anda untuk verifikasi sebelum login.', [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/login'),
-        },
-      ]);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      showModal({
+        title: 'Registrasi Berhasil',
+        message: 'Silakan cek email Anda untuk verifikasi sebelum login.',
+        type: 'success',
+        onClose: () => router.replace('/login'),
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Terjadi kesalahan saat registrasi.';
-      showFeedback(message);
+      const message =
+        error instanceof Error ? error.message : 'Registrasi gagal. Silakan coba lagi.';
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,25 +173,25 @@ export default function SignupScreen() {
   return (
     <SafeAreaView style={signupStyles.screen}>
       <View className="flex-1 bg-white">
-        <View className="absolute top-0 left-0 right-0 z-10 bg-white">
-          <View className="flex-row items-center justify-between px-8 py-4 pt-16">
-            <TouchableOpacity onPress={handleBack}>
-              <MaterialIcons name="keyboard-backspace" size={36} color="black" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         <ScrollView contentContainerStyle={signupStyles.scrollContent}>
-          <View className="items-center">
-            <Text className="mt-6 text-2xl font-montserrat-bold">Selamat Datang!</Text>
+          <View className="flex-1 bg-white">
+            <View className="flex-none px-8 py-4 pt-12">
+              <TouchableOpacity onPress={() => router.replace('/')}>
+                <MaterialIcons name="keyboard-backspace" size={36} color="black" />
+              </TouchableOpacity>
+            </View>
 
-            <View className="mt-8 w-full px-8">
+            <View className="flex-1 px-8">
+              <Text className="mb-6 text-center text-2xl font-montserrat-bold">
+                Daftar Akun Baru
+              </Text>
+
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Nama Lengkap</Text>
                 <TextInput
-                  className="border border-black rounded-3xl px-5 font-montserrat"
+                  className="rounded-3xl border border-black px-5 font-montserrat"
                   style={signupStyles.inputText}
-                  placeholder="Masukkan nama lengkap anda"
+                  placeholder="Masukkan nama anda"
                   placeholderTextColor="#9CA3AF"
                   value={fullName}
                   onChangeText={setFullName}
@@ -164,7 +201,7 @@ export default function SignupScreen() {
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Email</Text>
                 <TextInput
-                  className="border border-black rounded-3xl px-5 font-montserrat"
+                  className="rounded-3xl border border-black px-5 font-montserrat"
                   style={signupStyles.inputText}
                   placeholder="Masukkan email anda"
                   placeholderTextColor="#9CA3AF"
@@ -177,37 +214,30 @@ export default function SignupScreen() {
 
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Password</Text>
-                <View className="flex-row items-center border border-black rounded-3xl px-5">
-                  <TextInput
-                    className="flex-1 py-3 font-montserrat"
-                    style={signupStyles.inputText}
-                    placeholder="Masukkan password anda"
-                    placeholderTextColor="#9CA3AF"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} className="pl-3">
-                    <FontAwesome6
-                      name={showPassword ? 'eye-slash' : 'eye'}
-                      size={20}
-                      color={showPassword ? '#1A770A' : '#111111'}
-                    />
-                  </TouchableOpacity>
-                </View>
+                <PasswordInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Masukkan password anda"
+                  placeholderTextColor="#9CA3AF"
+                  style={signupStyles.inputText}
+                />
               </View>
 
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Tanggal Lahir</Text>
                 <TouchableOpacity
-                  className="flex-row items-center border border-black rounded-3xl px-5 py-3"
+                  className="flex-row items-center rounded-3xl border border-black px-5 py-3"
                   onPress={() => setDatePickerVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <Text className={`flex-1 font-montserrat text-base ${formattedDate ? 'text-black' : 'text-gray-400'}`}>
-                    {formattedDate || 'yyyy-mm-dd'}
+                  <Text
+                    className={`flex-1 font-montserrat text-base ${
+                      formattedDate ? 'text-black' : 'text-gray-400'
+                    }`}
+                  >
+                    {formattedDate || 'Pilih tanggal lahir'}
                   </Text>
-                  <FontAwesome6 name="calendar" size={20} color="black" />
+                  <FontAwesome6 name="calendar-days" size={20} color="black" />
                 </TouchableOpacity>
 
                 {isDatePickerVisible && (
@@ -228,18 +258,25 @@ export default function SignupScreen() {
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Jenis Kelamin</Text>
                 <TouchableOpacity
-                  className="flex-row items-center border border-black rounded-3xl px-5 py-3"
+                  className="flex-row items-center rounded-3xl border border-black px-5 py-3"
                   onPress={() => setGenderModalVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <Text className={`flex-1 font-montserrat text-base ${selectedGender ? 'text-black' : 'text-gray-400'}`}>
+                  <Text
+                    className={`flex-1 font-montserrat text-base ${
+                      selectedGender ? 'text-black' : 'text-gray-400'
+                    }`}
+                  >
                     {selectedGender || 'Pilih jenis kelamin'}
                   </Text>
                   <FontAwesome6 name="chevron-down" size={20} color="black" />
                 </TouchableOpacity>
 
                 <Modal transparent animationType="fade" visible={isGenderModalVisible}>
-                  <Pressable className="flex-1 items-center justify-center bg-black/30" onPress={() => setGenderModalVisible(false)}>
+                  <Pressable
+                    className="flex-1 items-center justify-center bg-black/30"
+                    onPress={() => setGenderModalVisible(false)}
+                  >
                     <View className="w-3/4 overflow-hidden rounded-xl bg-white">
                       {genderOptions.map((item) => (
                         <Pressable
@@ -261,7 +298,7 @@ export default function SignupScreen() {
               <View style={signupStyles.field}>
                 <Text className="mb-2 px-5 font-montserrat-bold">Riwayat Penyakit</Text>
                 <TextInput
-                  className="border border-black rounded-3xl px-5 font-montserrat"
+                  className="rounded-3xl border border-black px-5 font-montserrat"
                   style={signupStyles.inputText}
                   placeholder="Masukkan riwayat penyakit anda"
                   placeholderTextColor="#9CA3AF"
@@ -274,7 +311,7 @@ export default function SignupScreen() {
                 <View className="mr-2 flex-1">
                   <Text className="mb-2 px-5 font-montserrat-bold">Tinggi Badan</Text>
                   <TextInput
-                    className="border border-black rounded-3xl px-5 py-3 font-montserrat"
+                    className="rounded-3xl border border-black px-5 py-3 font-montserrat"
                     style={signupStyles.inputText}
                     placeholder="cm"
                     placeholderTextColor="#9CA3AF"
@@ -286,7 +323,7 @@ export default function SignupScreen() {
                 <View className="ml-2 flex-1">
                   <Text className="mb-2 px-5 font-montserrat-bold">Berat Badan</Text>
                   <TextInput
-                    className="border border-black rounded-3xl px-5 py-3 font-montserrat"
+                    className="rounded-3xl border border-black px-5 py-3 font-montserrat"
                     style={signupStyles.inputText}
                     placeholder="kg"
                     placeholderTextColor="#9CA3AF"
@@ -299,11 +336,12 @@ export default function SignupScreen() {
 
               <View className="mb-2 w-full">
                 <TouchableOpacity
-                  className={`bg-[#1A770A] w-full items-center rounded-3xl py-3 shadow-md active:opacity-80 ${
-                    isSubmitting || isLoading ? 'opacity-70' : ''
+                  className={`w-full items-center rounded-3xl bg-[#1A770A] py-3 shadow-md ${
+                    isSubmitting ? 'opacity-70' : ''
                   }`}
                   onPress={handleSignup}
-                  disabled={isSubmitting || isLoading}
+                  disabled={isSubmitting}
+                  activeOpacity={0.85}
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="#fff" />
@@ -320,7 +358,9 @@ export default function SignupScreen() {
                   disabled={isSubmitting}
                   onPress={() => router.push('/login')}
                 >
-                  <Text className="text-sm font-montserrat-bold text-[#2A730B] underline underline-offset-4">Masuk</Text>
+                  <Text className="text-sm font-montserrat-bold text-[#2A730B] underline underline-offset-4">
+                    Masuk
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -328,11 +368,13 @@ export default function SignupScreen() {
         </ScrollView>
       </View>
 
-      {isFeedbackVisible && feedbackMessage && (
-        <FeedbackModal message={feedbackMessage} onClose={() => setFeedbackMessage(null)} />
-      )}
+      <AppModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onClose={closeModal}
+      />
     </SafeAreaView>
   );
 }
-
-
