@@ -2,7 +2,7 @@
 
 import { ComponentProps, useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

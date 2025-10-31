@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, TextInput, TextInputProps, View } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
+import { Feather } from '@expo/vector-icons';
 
 type NativeWindTextInputProps = TextInputProps & {
   className?: string;

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { User } from '@supabase/supabase-js';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import FooterNav from '@/components/FooterNav';
