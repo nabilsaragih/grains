@@ -14,10 +14,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
 import FooterNav from '@/components/FooterNav';
 import AppModal from '@/components/AppModal';
+import { supabase } from '@/lib/supabase';
 
-const OCR_UPLOAD_URL = 'https://api.example.com/ocr/upload';
+interface UserProfilePayload {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  gender: string | null;
+  height: string | null;
+  weight: string | null;
+  birth_date: string | null;
+  medical_history: string | null;
+}
+
+const OCR_SEARCH_API_URL = process.env.EXPO_PUBLIC_OCR_SEARCH_URL;
 
 type PermissionState = 'loading' | 'granted' | 'denied';
+
+const normalizeOptionalString = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+
+  return normalized.length ? normalized : null;
+};
 
 export default function OcrScreen() {
   const cameraRef = useRef<CameraView | null>(null);
@@ -31,6 +53,8 @@ export default function OcrScreen() {
     message: '',
     type: 'info' as 'success' | 'error' | 'info',
   });
+  const [userProfile, setUserProfile] = useState<UserProfilePayload | null>(null);
+  const [isFetchingUserProfile, setIsFetchingUserProfile] = useState(false);
 
   const isCameraMode = permissionState === 'granted' && !capturedPhotoUri && Platform.OS !== 'web';
 
@@ -53,13 +77,67 @@ export default function OcrScreen() {
     requestPermission();
   }, [requestPermission]);
 
-  const showModal = useCallback((type: 'success' | 'error', title: string, message: string) => {
+  const showModal = useCallback((type: 'success' | 'error' | 'info', title: string, message: string) => {
     setModalConfig({ visible: true, title, message, type });
   }, []);
 
   const closeModal = useCallback(() => {
     setModalConfig((prev) => ({ ...prev, visible: false }));
   }, []);
+
+  const fetchUserProfile = useCallback(
+    async (options?: { silent?: boolean }): Promise<UserProfilePayload | null> => {
+      setIsFetchingUserProfile(true);
+
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error || !data.user) {
+          throw new Error(error?.message ?? 'Tidak dapat memuat data pengguna.');
+        }
+
+        const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+
+        const profile: UserProfilePayload = {
+          id: data.user.id,
+          email: normalizeOptionalString(data.user.email),
+          full_name: normalizeOptionalString(metadata.full_name),
+          gender: normalizeOptionalString(metadata.gender),
+          height: normalizeOptionalString(metadata.height),
+          weight: normalizeOptionalString(metadata.weight),
+          birth_date: normalizeOptionalString(metadata.birth_date),
+          medical_history: normalizeOptionalString(metadata.medical_history),
+        };
+
+        setUserProfile(profile);
+        return profile;
+      } catch (error) {
+        console.warn('Failed to fetch user profile for OCR submission', error);
+        setUserProfile(null);
+
+        if (!options?.silent) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Terjadi kesalahan saat memuat profil pengguna.';
+          showModal(
+            'error',
+            'Profil Tidak Dapat Dimuat',
+            `${message} Silakan login ulang lalu coba lagi.`,
+          );
+        }
+
+        return null;
+      } finally {
+        setIsFetchingUserProfile(false);
+      }
+    },
+    [showModal],
+  );
+
+  useEffect(() => {
+    void fetchUserProfile({ silent: true });
+  }, [fetchUserProfile]);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || !cameraReady) {
@@ -88,6 +166,38 @@ export default function OcrScreen() {
       return;
     }
 
+    if (!OCR_SEARCH_API_URL) {
+      showModal(
+        'error',
+        'Konfigurasi Tidak Lengkap',
+        'Harap set EXPO_PUBLIC_OCR_SEARCH_URL sebelum mengirim foto.',
+      );
+      return;
+    }
+
+    if (isUploading) {
+      return;
+    }
+
+    if (isFetchingUserProfile) {
+      showModal(
+        'info',
+        'Memuat Profil',
+        'Profil Anda sedang dimuat. Silakan tunggu sesaat lalu coba lagi.',
+      );
+      return;
+    }
+
+    let profilePayload = userProfile;
+
+    if (!profilePayload) {
+      profilePayload = await fetchUserProfile();
+    }
+
+    if (!profilePayload) {
+      return;
+    }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -96,14 +206,16 @@ export default function OcrScreen() {
         name: `ocr-${Date.now()}.jpg`,
         type: 'image/jpeg',
       } as any);
+      formData.append('userProfile', JSON.stringify(profilePayload));
 
-      const response = await fetch(OCR_UPLOAD_URL, {
+      const response = await fetch(OCR_SEARCH_API_URL, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Upload gagal diproses.');
       }
 
       showModal('success', 'Upload Berhasil', 'Foto berhasil dikirim untuk diproses.');
@@ -113,7 +225,14 @@ export default function OcrScreen() {
     } finally {
       setIsUploading(false);
     }
-  }, [capturedPhotoUri, showModal]);
+  }, [
+    capturedPhotoUri,
+    fetchUserProfile,
+    isFetchingUserProfile,
+    isUploading,
+    showModal,
+    userProfile,
+  ]);
 
   const openSettings = useCallback(async () => {
     try {
