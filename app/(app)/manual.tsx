@@ -35,7 +35,6 @@ interface UserProfilePayload {
 }
 
 const UNIT_OPTIONS = ['g', 'mL', 'pcs'];
-// Endpoint for manual form submission (configure via EXPO_PUBLIC_MANUAL_SEARCH_URL env var).
 const MANUAL_SEARCH_API_URL = process.env.EXPO_PUBLIC_MANUAL_SEARCH_URL;
 const headerMinHeightStyle = { minHeight: 88 };
 const titleLineHeightStyle = { lineHeight: 26 };
@@ -257,7 +256,7 @@ export default function ManualScreen() {
       const serialized = encodeURIComponent(JSON.stringify(responseBody));
       router.push({
         pathname: '/(app)/result',
-        params: { payload: serialized },
+        params: { payload: serialized, usedQuery: trimmedSearchQuery },
       });
     } catch (error) {
       console.warn('Failed to submit manual form', error);
