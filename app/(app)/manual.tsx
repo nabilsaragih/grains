@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,13 +12,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import FooterNav from '@/components/FooterNav';
 import AppModal from '@/components/AppModal';
+import { supabase } from '@/lib/supabase';
 
 interface NutritionRow {
   id: number;
   label: string;
   value: string;
+}
+
+interface UserProfilePayload {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  gender: string | null;
+  height: string | null;
+  weight: string | null;
+  birth_date: string | null;
+  medical_history: string | null;
 }
 
 const UNIT_OPTIONS = ['g', 'mL', 'pcs'];
@@ -37,7 +50,19 @@ const cardShadowStyle = {
 
 const inputBaseClass =
   'border border-[#D6E4D6] rounded-[18px] px-4 py-2.5 font-montserrat text-sm text-[#111111] bg-[#FAFCF8]';
+
+const normalizeOptionalString = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+
+  return normalized.length ? normalized : null;
+};
+
 export default function ManualScreen() {
+  const router = useRouter();
   const [searchText, setSearchText] = useState('');
   const [productName, setProductName] = useState('');
   const [portionSize, setPortionSize] = useState('');
@@ -52,6 +77,8 @@ export default function ManualScreen() {
     message: '',
     type: 'info' as 'success' | 'error' | 'info',
   });
+  const [userProfile, setUserProfile] = useState<UserProfilePayload | null>(null);
+  const [isFetchingUserProfile, setIsFetchingUserProfile] = useState(false);
 
   const portionUnit = useMemo(
     () => UNIT_OPTIONS[portionUnitIndex % UNIT_OPTIONS.length],
@@ -86,6 +113,60 @@ export default function ManualScreen() {
     setModalState((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  const fetchUserProfile = useCallback(
+    async (options?: { silent?: boolean }): Promise<UserProfilePayload | null> => {
+      setIsFetchingUserProfile(true);
+
+      try {
+        const { data, error } = await supabase.auth.getUser();
+
+        if (error || !data.user) {
+          throw new Error(error?.message ?? 'Tidak dapat memuat data pengguna.');
+        }
+
+        const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+
+        const profile: UserProfilePayload = {
+          id: data.user.id,
+          email: normalizeOptionalString(data.user.email),
+          full_name: normalizeOptionalString(metadata.full_name),
+          gender: normalizeOptionalString(metadata.gender),
+          height: normalizeOptionalString(metadata.height),
+          weight: normalizeOptionalString(metadata.weight),
+          birth_date: normalizeOptionalString(metadata.birth_date),
+          medical_history: normalizeOptionalString(metadata.medical_history),
+        };
+
+        setUserProfile(profile);
+        return profile;
+      } catch (error) {
+        console.warn('Failed to fetch user profile for manual submission', error);
+        setUserProfile(null);
+
+        if (!options?.silent) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Terjadi kesalahan saat memuat profil pengguna.';
+          showModal(
+            'error',
+            'Profil Tidak Dapat Dimuat',
+            `${message} Silakan login ulang lalu coba lagi.`,
+          );
+        }
+
+        return null;
+      } finally {
+        setIsFetchingUserProfile(false);
+      }
+    },
+    [showModal],
+  );
+
+  useEffect(() => {
+    void fetchUserProfile({ silent: true });
+  }, [fetchUserProfile]);
+
   const handleManualSubmit = useCallback(async () => {
     if (!MANUAL_SEARCH_API_URL) {
       showModal(
@@ -116,6 +197,25 @@ export default function ManualScreen() {
       }))
       .filter((row) => row.label && row.value);
 
+    if (isFetchingUserProfile) {
+      showModal(
+        'info',
+        'Memuat Profil',
+        'Profil Anda sedang dimuat. Silakan tunggu sesaat lalu coba lagi.',
+      );
+      return;
+    }
+
+    let profilePayload = userProfile;
+
+    if (!profilePayload) {
+      profilePayload = await fetchUserProfile();
+    }
+
+    if (!profilePayload) {
+      return;
+    }
+
     const payload = {
       query: trimmedSearchQuery,
       product: {
@@ -126,6 +226,7 @@ export default function ManualScreen() {
         },
       },
       nutritionFacts: normalizedNutrition,
+      userProfile: profilePayload,
     };
 
     setIsSubmitting(true);
@@ -153,7 +254,11 @@ export default function ManualScreen() {
       }
 
       console.log('Manual form submission result:', responseBody);
-      showModal('success', 'Berhasil', 'Data manual berhasil dikirim.');
+      const serialized = encodeURIComponent(JSON.stringify(responseBody));
+      router.push({
+        pathname: '/(app)/result',
+        params: { payload: serialized },
+      });
     } catch (error) {
       console.warn('Failed to submit manual form', error);
       const message =
@@ -164,7 +269,19 @@ export default function ManualScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, nutritionRows, portionUnit, portionSize, productName, searchText, showModal]);
+  }, [
+    fetchUserProfile,
+    isFetchingUserProfile,
+    isSubmitting,
+    nutritionRows,
+    portionUnit,
+    portionSize,
+    productName,
+    router,
+    searchText,
+    showModal,
+    userProfile,
+  ]);
 
   return (
     <SafeAreaView className="flex-1 bg-white">
