@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
+import { useRouter } from 'expo-router';
 import FooterNav from '@/components/FooterNav';
 import AppModal from '@/components/AppModal';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/src/auth/AuthProvider';
 
 interface UserProfilePayload {
   id: string;
@@ -25,6 +27,36 @@ interface UserProfilePayload {
   weight: string | null;
   birth_date: string | null;
   medical_history: string | null;
+}
+
+interface RecommendationNutrition {
+  sugar_g_100g?: number | null;
+  sodium_mg_100g?: number | null;
+  protein_g_100g?: number | null;
+  fiber_g_100g?: number | null;
+  fat_sat_g_100g?: number | null;
+}
+
+interface RecommendationItem {
+  rank?: number | null;
+  brand?: string | null;
+  category?: string | null;
+  reasons?: string[] | null;
+  nutrition?: RecommendationNutrition | null;
+}
+
+interface ManualSearchResponse {
+  status?: string;
+  used_query?: string;
+  answer?: {
+    product_assessment?: {
+      is_safe?: boolean | null;
+      reasons?: string[] | null;
+      summary?: string | null;
+    };
+    recommendations?: RecommendationItem[] | null;
+    summary?: string | null;
+  };
 }
 
 const OCR_SEARCH_API_URL = process.env.EXPO_PUBLIC_OCR_SEARCH_URL;
@@ -41,7 +73,74 @@ const normalizeOptionalString = (value: unknown) => {
   return normalized.length ? normalized : null;
 };
 
+const normalizeStringArray = (value: unknown): string[] | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = value
+    .map((item) => normalizeOptionalString(item))
+    .filter((item): item is string => Boolean(item));
+
+  return normalized.length ? normalized : null;
+};
+
+const toNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const numeric = Number(value);
+
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const buildRecommendationHistoryPayload = (
+  response: ManualSearchResponse,
+  userId: string,
+  fallbackQuery: string,
+) => {
+  const productAssessment = response.answer?.product_assessment;
+  const recommendations = Array.isArray(response.answer?.recommendations)
+    ? response.answer?.recommendations ?? []
+    : [];
+
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    status: normalizeOptionalString(response.status) ?? 'ok',
+    used_query:
+      normalizeOptionalString(response.used_query) ??
+      normalizeOptionalString(fallbackQuery),
+    is_safe:
+      typeof productAssessment?.is_safe === 'boolean'
+        ? productAssessment.is_safe
+        : null,
+    assessment_summary: normalizeOptionalString(productAssessment?.summary),
+    assessment_reasons: normalizeStringArray(productAssessment?.reasons),
+    answer_summary: normalizeOptionalString(response.answer?.summary),
+  };
+
+  recommendations.slice(0, 5).forEach((rec, index) => {
+    const slot = index + 1;
+    const nutrition = rec?.nutrition ?? null;
+
+    payload[`rec${slot}_rank`] = toNullableNumber(rec?.rank);
+    payload[`rec${slot}_brand`] = normalizeOptionalString(rec?.brand);
+    payload[`rec${slot}_category`] = normalizeOptionalString(rec?.category);
+    payload[`rec${slot}_reasons`] = normalizeStringArray(rec?.reasons);
+    payload[`rec${slot}_sugar_g_100g`] = toNullableNumber(nutrition?.sugar_g_100g);
+    payload[`rec${slot}_sodium_mg_100g`] = toNullableNumber(nutrition?.sodium_mg_100g);
+    payload[`rec${slot}_protein_g_100g`] = toNullableNumber(nutrition?.protein_g_100g);
+    payload[`rec${slot}_fiber_g_100g`] = toNullableNumber(nutrition?.fiber_g_100g);
+    payload[`rec${slot}_fat_sat_g_100g`] = toNullableNumber(nutrition?.fat_sat_g_100g);
+  });
+
+  return payload;
+};
+
 export default function OcrScreen() {
+  const router = useRouter();
+  const { userId } = useAuth();
   const cameraRef = useRef<CameraView | null>(null);
   const [permissionState, setPermissionState] = useState<PermissionState>('loading');
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
@@ -139,6 +238,41 @@ export default function OcrScreen() {
     void fetchUserProfile({ silent: true });
   }, [fetchUserProfile]);
 
+  const saveRecommendationHistory = useCallback(
+    async (response: unknown, fallbackQuery: string): Promise<string | null> => {
+      if (!response || typeof response !== 'object') {
+        return null;
+      }
+
+      const resolvedUserId = userId ?? userProfile?.id ?? null;
+
+      if (!resolvedUserId) {
+        console.warn('Skipping recommendation history save: missing user id.');
+        return null;
+      }
+
+      const payload = buildRecommendationHistoryPayload(
+        response as ManualSearchResponse,
+        resolvedUserId,
+        fallbackQuery,
+      );
+
+      const { data, error } = await supabase
+        .from('recommendation_history')
+        .insert(payload)
+        .select('id')
+        .single();
+
+      if (error) {
+        console.warn('Failed to save recommendation history', error);
+        return null;
+      }
+
+      return data?.id ?? null;
+    },
+    [userId, userProfile],
+  );
+
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || !cameraReady) {
       return;
@@ -218,7 +352,23 @@ export default function OcrScreen() {
         throw new Error(errorText || 'Upload gagal diproses.');
       }
 
-      showModal('success', 'Upload Berhasil', 'Foto berhasil dikirim untuk diproses.');
+      let responseBody: unknown = null;
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        responseBody = await response.json();
+      } else {
+        responseBody = await response.text();
+      }
+
+      const historyId = await saveRecommendationHistory(responseBody, '');
+      if (historyId) {
+        router.push({
+          pathname: '/(app)/result',
+          params: { historyId },
+        });
+      } else {
+        router.push('/(app)/result');
+      }
       setCapturedPhotoUri(null);
     } catch {
       showModal('error', 'Upload Gagal', 'Tidak dapat mengirim foto. Silakan coba lagi.');
@@ -230,6 +380,8 @@ export default function OcrScreen() {
     fetchUserProfile,
     isFetchingUserProfile,
     isUploading,
+    router,
+    saveRecommendationHistory,
     showModal,
     userProfile,
   ]);

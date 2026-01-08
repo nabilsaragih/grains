@@ -42,47 +42,47 @@ export type RecommendationHistoryRow = {
   rec1_brand: string | null;
   rec1_category: string | null;
   rec1_reasons: string[] | null;
-  rec1_sugar: number | null;
-  rec1_sodium: number | null;
-  rec1_protein: number | null;
-  rec1_fiber: number | null;
-  rec1_fat_sat: number | null;
+  rec1_sugar_g_100g: number | null;
+  rec1_sodium_mg_100g: number | null;
+  rec1_protein_g_100g: number | null;
+  rec1_fiber_g_100g: number | null;
+  rec1_fat_sat_g_100g: number | null;
   rec2_rank: number | null;
   rec2_brand: string | null;
   rec2_category: string | null;
   rec2_reasons: string[] | null;
-  rec2_sugar: number | null;
-  rec2_sodium: number | null;
-  rec2_protein: number | null;
-  rec2_fiber: number | null;
-  rec2_fat_sat: number | null;
+  rec2_sugar_g_100g: number | null;
+  rec2_sodium_mg_100g: number | null;
+  rec2_protein_g_100g: number | null;
+  rec2_fiber_g_100g: number | null;
+  rec2_fat_sat_g_100g: number | null;
   rec3_rank: number | null;
   rec3_brand: string | null;
   rec3_category: string | null;
   rec3_reasons: string[] | null;
-  rec3_sugar: number | null;
-  rec3_sodium: number | null;
-  rec3_protein: number | null;
-  rec3_fiber: number | null;
-  rec3_fat_sat: number | null;
+  rec3_sugar_g_100g: number | null;
+  rec3_sodium_mg_100g: number | null;
+  rec3_protein_g_100g: number | null;
+  rec3_fiber_g_100g: number | null;
+  rec3_fat_sat_g_100g: number | null;
   rec4_rank: number | null;
   rec4_brand: string | null;
   rec4_category: string | null;
   rec4_reasons: string[] | null;
-  rec4_sugar: number | null;
-  rec4_sodium: number | null;
-  rec4_protein: number | null;
-  rec4_fiber: number | null;
-  rec4_fat_sat: number | null;
+  rec4_sugar_g_100g: number | null;
+  rec4_sodium_mg_100g: number | null;
+  rec4_protein_g_100g: number | null;
+  rec4_fiber_g_100g: number | null;
+  rec4_fat_sat_g_100g: number | null;
   rec5_rank: number | null;
   rec5_brand: string | null;
   rec5_category: string | null;
   rec5_reasons: string[] | null;
-  rec5_sugar: number | null;
-  rec5_sodium: number | null;
-  rec5_protein: number | null;
-  rec5_fiber: number | null;
-  rec5_fat_sat: number | null;
+  rec5_sugar_g_100g: number | null;
+  rec5_sodium_mg_100g: number | null;
+  rec5_protein_g_100g: number | null;
+  rec5_fiber_g_100g: number | null;
+  rec5_fat_sat_g_100g: number | null;
   created_at: string;
 };
 
@@ -253,47 +253,47 @@ export const mapResultToHistoryInsertPayload = (
     rec1_brand: rec1.brand,
     rec1_category: rec1.category,
     rec1_reasons: rec1.reasons,
-    rec1_sugar: rec1.sugar,
-    rec1_sodium: rec1.sodium,
-    rec1_protein: rec1.protein,
-    rec1_fiber: rec1.fiber,
-    rec1_fat_sat: rec1.fat_sat,
+    rec1_sugar_g_100g: rec1.sugar,
+    rec1_sodium_mg_100g: rec1.sodium,
+    rec1_protein_g_100g: rec1.protein,
+    rec1_fiber_g_100g: rec1.fiber,
+    rec1_fat_sat_g_100g: rec1.fat_sat,
     rec2_rank: rec2.rank,
     rec2_brand: rec2.brand,
     rec2_category: rec2.category,
     rec2_reasons: rec2.reasons,
-    rec2_sugar: rec2.sugar,
-    rec2_sodium: rec2.sodium,
-    rec2_protein: rec2.protein,
-    rec2_fiber: rec2.fiber,
-    rec2_fat_sat: rec2.fat_sat,
+    rec2_sugar_g_100g: rec2.sugar,
+    rec2_sodium_mg_100g: rec2.sodium,
+    rec2_protein_g_100g: rec2.protein,
+    rec2_fiber_g_100g: rec2.fiber,
+    rec2_fat_sat_g_100g: rec2.fat_sat,
     rec3_rank: rec3.rank,
     rec3_brand: rec3.brand,
     rec3_category: rec3.category,
     rec3_reasons: rec3.reasons,
-    rec3_sugar: rec3.sugar,
-    rec3_sodium: rec3.sodium,
-    rec3_protein: rec3.protein,
-    rec3_fiber: rec3.fiber,
-    rec3_fat_sat: rec3.fat_sat,
+    rec3_sugar_g_100g: rec3.sugar,
+    rec3_sodium_mg_100g: rec3.sodium,
+    rec3_protein_g_100g: rec3.protein,
+    rec3_fiber_g_100g: rec3.fiber,
+    rec3_fat_sat_g_100g: rec3.fat_sat,
     rec4_rank: rec4.rank,
     rec4_brand: rec4.brand,
     rec4_category: rec4.category,
     rec4_reasons: rec4.reasons,
-    rec4_sugar: rec4.sugar,
-    rec4_sodium: rec4.sodium,
-    rec4_protein: rec4.protein,
-    rec4_fiber: rec4.fiber,
-    rec4_fat_sat: rec4.fat_sat,
+    rec4_sugar_g_100g: rec4.sugar,
+    rec4_sodium_mg_100g: rec4.sodium,
+    rec4_protein_g_100g: rec4.protein,
+    rec4_fiber_g_100g: rec4.fiber,
+    rec4_fat_sat_g_100g: rec4.fat_sat,
     rec5_rank: rec5.rank,
     rec5_brand: rec5.brand,
     rec5_category: rec5.category,
     rec5_reasons: rec5.reasons,
-    rec5_sugar: rec5.sugar,
-    rec5_sodium: rec5.sodium,
-    rec5_protein: rec5.protein,
-    rec5_fiber: rec5.fiber,
-    rec5_fat_sat: rec5.fat_sat,
+    rec5_sugar_g_100g: rec5.sugar,
+    rec5_sodium_mg_100g: rec5.sodium,
+    rec5_protein_g_100g: rec5.protein,
+    rec5_fiber_g_100g: rec5.fiber,
+    rec5_fat_sat_g_100g: rec5.fat_sat,
   };
 };
 
@@ -306,11 +306,11 @@ export const mapHistoryRowToUiModel = (row: RecommendationHistoryRow): Recommend
       brand: row.rec1_brand,
       category: row.rec1_category,
       reasons: row.rec1_reasons,
-      sugar: row.rec1_sugar,
-      sodium: row.rec1_sodium,
-      protein: row.rec1_protein,
-      fiber: row.rec1_fiber,
-      fat_sat: row.rec1_fat_sat,
+      sugar: row.rec1_sugar_g_100g,
+      sodium: row.rec1_sodium_mg_100g,
+      protein: row.rec1_protein_g_100g,
+      fiber: row.rec1_fiber_g_100g,
+      fat_sat: row.rec1_fat_sat_g_100g,
     },
     1,
   );
@@ -324,11 +324,11 @@ export const mapHistoryRowToUiModel = (row: RecommendationHistoryRow): Recommend
       brand: row.rec2_brand,
       category: row.rec2_category,
       reasons: row.rec2_reasons,
-      sugar: row.rec2_sugar,
-      sodium: row.rec2_sodium,
-      protein: row.rec2_protein,
-      fiber: row.rec2_fiber,
-      fat_sat: row.rec2_fat_sat,
+      sugar: row.rec2_sugar_g_100g,
+      sodium: row.rec2_sodium_mg_100g,
+      protein: row.rec2_protein_g_100g,
+      fiber: row.rec2_fiber_g_100g,
+      fat_sat: row.rec2_fat_sat_g_100g,
     },
     2,
   );
@@ -342,11 +342,11 @@ export const mapHistoryRowToUiModel = (row: RecommendationHistoryRow): Recommend
       brand: row.rec3_brand,
       category: row.rec3_category,
       reasons: row.rec3_reasons,
-      sugar: row.rec3_sugar,
-      sodium: row.rec3_sodium,
-      protein: row.rec3_protein,
-      fiber: row.rec3_fiber,
-      fat_sat: row.rec3_fat_sat,
+      sugar: row.rec3_sugar_g_100g,
+      sodium: row.rec3_sodium_mg_100g,
+      protein: row.rec3_protein_g_100g,
+      fiber: row.rec3_fiber_g_100g,
+      fat_sat: row.rec3_fat_sat_g_100g,
     },
     3,
   );
@@ -360,11 +360,11 @@ export const mapHistoryRowToUiModel = (row: RecommendationHistoryRow): Recommend
       brand: row.rec4_brand,
       category: row.rec4_category,
       reasons: row.rec4_reasons,
-      sugar: row.rec4_sugar,
-      sodium: row.rec4_sodium,
-      protein: row.rec4_protein,
-      fiber: row.rec4_fiber,
-      fat_sat: row.rec4_fat_sat,
+      sugar: row.rec4_sugar_g_100g,
+      sodium: row.rec4_sodium_mg_100g,
+      protein: row.rec4_protein_g_100g,
+      fiber: row.rec4_fiber_g_100g,
+      fat_sat: row.rec4_fat_sat_g_100g,
     },
     4,
   );
@@ -378,11 +378,11 @@ export const mapHistoryRowToUiModel = (row: RecommendationHistoryRow): Recommend
       brand: row.rec5_brand,
       category: row.rec5_category,
       reasons: row.rec5_reasons,
-      sugar: row.rec5_sugar,
-      sodium: row.rec5_sodium,
-      protein: row.rec5_protein,
-      fiber: row.rec5_fiber,
-      fat_sat: row.rec5_fat_sat,
+      sugar: row.rec5_sugar_g_100g,
+      sodium: row.rec5_sodium_mg_100g,
+      protein: row.rec5_protein_g_100g,
+      fiber: row.rec5_fiber_g_100g,
+      fat_sat: row.rec5_fat_sat_g_100g,
     },
     5,
   );

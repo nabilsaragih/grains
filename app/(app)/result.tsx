@@ -1,22 +1,36 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import FooterNav from '@/components/FooterNav';
 import { supabase } from '@/lib/supabase';
 import {
+  RecommendationHistoryRow,
   RecommendationItem,
   RecommendationResult,
-  getLatestRecommendationHistory,
-  getRecommendationHistoryById,
   mapHistoryRowToUiModel,
-  mapResultToHistoryInsertPayload,
 } from '@/lib/recommendationHistory';
+import { useAuth } from '@/src/auth/AuthProvider';
 
 const getParamValue = (value?: string | string[]) => (Array.isArray(value) ? value[0] : value);
+
+const formatTimestamp = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 function RecommendationCard({ item }: { item: RecommendationItem }) {
   const nutrition = item.nutrition ?? {};
@@ -72,164 +86,218 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
   );
 }
 
+function HistoryCard({
+  row,
+  onPress,
+}: {
+  row: RecommendationHistoryRow;
+  onPress: () => void;
+}) {
+  const statusLabel =
+    row.is_safe === null ? 'Belum dinilai' : row.is_safe ? 'Aman' : 'Tidak aman';
+  const statusColor =
+    row.is_safe === null ? '#6B7280' : row.is_safe ? '#15803D' : '#B91C1C';
+  const summary = row.answer_summary ?? row.assessment_summary ?? 'Tidak ada ringkasan.';
+
+  return (
+    <TouchableOpacity
+      className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5"
+      activeOpacity={0.85}
+      onPress={onPress}
+    >
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]" numberOfLines={2}>
+            {row.used_query ?? 'Tanpa query'}
+          </Text>
+          <Text className="font-montserrat text-sm text-[#374151]" numberOfLines={2}>
+            {summary}
+          </Text>
+          <View className="mt-2 flex-row items-center gap-3">
+            <Text className="font-montserrat-bold text-xs" style={{ color: statusColor }}>
+              {statusLabel}
+            </Text>
+            <Text className="font-montserrat text-xs text-[#6B7280]">
+              {formatTimestamp(row.created_at)}
+            </Text>
+          </View>
+        </View>
+        <FontAwesome6 name="chevron-right" size={16} color="#9CA3AF" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function ResultScreen() {
   const router = useRouter();
+  const { userId } = useAuth();
   const params = useLocalSearchParams<{
-    payload?: string | string[];
     historyId?: string | string[];
     id?: string | string[];
-    usedQuery?: string | string[];
   }>();
-  const rawPayload = getParamValue(params.payload);
   const historyIdParam = getParamValue(params.historyId) ?? getParamValue(params.id);
-  const usedQueryParam = getParamValue(params.usedQuery);
+  const isDetailView = Boolean(historyIdParam);
 
-  const [savedResult, setSavedResult] = useState<RecommendationResult | null>(null);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const savedPayloadRef = useRef<string | null>(null);
+  const [historyRows, setHistoryRows] = useState<RecommendationHistoryRow[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [detailRow, setDetailRow] = useState<RecommendationHistoryRow | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
-  const parsedPayload = useMemo<RecommendationResult | null>(() => {
-    const raw = rawPayload;
+  const resolveActiveUserId = useCallback(async () => {
+    const { data, error } = await supabase.auth.getUser();
 
-    if (!raw) {
+    if (error || !data.user) {
       return null;
     }
+
+    if (userId && userId !== data.user.id) {
+      throw new Error('Sesi tidak sesuai. Silakan login ulang.');
+    }
+
+    return data.user.id;
+  }, [userId]);
+
+  const loadHistoryList = useCallback(async () => {
+    setListLoading(true);
+    setListError(null);
 
     try {
-      return JSON.parse(decodeURIComponent(raw)) as RecommendationResult;
-    } catch {
-      return null;
-    }
-  }, [rawPayload]);
-
-  const isViewingSavedResult = Boolean(historyIdParam) || !parsedPayload;
-  const displayedResult = isViewingSavedResult ? savedResult : parsedPayload;
-
-  const handleBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(app)/manual');
-    }
-  }, [router]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!isViewingSavedResult) {
-      setIsHistoryLoading(false);
-      setHistoryError(null);
-      setSavedResult(null);
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    setIsHistoryLoading(true);
-    setHistoryError(null);
-
-    const loadHistory = async () => {
-      try {
-        const row = historyIdParam
-          ? await getRecommendationHistoryById(supabase, historyIdParam)
-          : await getLatestRecommendationHistory(supabase);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSavedResult(row ? mapHistoryRowToUiModel(row) : null);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Terjadi kesalahan saat memuat rekomendasi.';
-        setHistoryError(message);
-        setSavedResult(null);
-      } finally {
-        if (isMounted) {
-          setIsHistoryLoading(false);
-        }
-      }
-    };
-
-    void loadHistory();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [historyIdParam, isViewingSavedResult]);
-
-  useEffect(() => {
-    if (!parsedPayload || historyIdParam || !rawPayload) {
-      return;
-    }
-
-    if (savedPayloadRef.current === rawPayload) {
-      return;
-    }
-
-    savedPayloadRef.current = rawPayload;
-
-    const persistHistory = async () => {
-      const { data, error } = await supabase.auth.getUser();
-
-      if (error || !data.user) {
+      const activeUserId = await resolveActiveUserId();
+      if (!activeUserId) {
+        setHistoryRows([]);
+        setListError('Sesi login tidak ditemukan.');
         return;
       }
 
-      const insertPayload = mapResultToHistoryInsertPayload(parsedPayload, usedQueryParam);
-      const { error: insertError } = await supabase
+      const { data, error } = await supabase
         .from('recommendation_history')
-        .insert({
-          user_id: data.user.id,
-          ...insertPayload,
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', activeUserId)
+        .order('created_at', { ascending: false });
 
-      if (insertError) {
-        console.warn('Failed to insert recommendation history', insertError);
+      if (error) {
+        throw error;
       }
-    };
 
-    void persistHistory();
-  }, [historyIdParam, parsedPayload, rawPayload, usedQueryParam]);
+      setHistoryRows((data ?? []) as RecommendationHistoryRow[]);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Terjadi kesalahan saat memuat riwayat rekomendasi.';
+      setListError(message);
+      setHistoryRows([]);
+    } finally {
+      setListLoading(false);
+    }
+  }, [resolveActiveUserId]);
+
+  const loadDetail = useCallback(
+    async (historyId: string) => {
+      setDetailLoading(true);
+      setDetailError(null);
+
+      try {
+        const activeUserId = await resolveActiveUserId();
+        if (!activeUserId) {
+          setDetailRow(null);
+          setDetailError('Sesi login tidak ditemukan.');
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('recommendation_history')
+          .select('*')
+          .eq('id', historyId)
+          .eq('user_id', activeUserId)
+          .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        setDetailRow((data ?? null) as RecommendationHistoryRow | null);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Terjadi kesalahan saat memuat detail rekomendasi.';
+        setDetailError(message);
+        setDetailRow(null);
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [resolveActiveUserId],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isDetailView && historyIdParam) {
+        void loadDetail(historyIdParam);
+      } else {
+        void loadHistoryList();
+      }
+    }, [historyIdParam, isDetailView, loadDetail, loadHistoryList]),
+  );
+
+  const detailResult = useMemo<RecommendationResult | null>(() => {
+    return detailRow ? mapHistoryRowToUiModel(detailRow) : null;
+  }, [detailRow]);
 
   const recommendations = useMemo(() => {
-    const recs = displayedResult?.answer?.recommendations ?? [];
+    const recs = detailResult?.answer?.recommendations ?? [];
     return [...recs].sort((a, b) => a.rank - b.rank).slice(0, 6);
-  }, [displayedResult]);
+  }, [detailResult]);
+
+  const handleBackToList = useCallback(() => {
+    router.replace('/(app)/result');
+  }, [router]);
+
+  const handleOpenDetail = useCallback(
+    (id: string) => {
+      router.push({ pathname: '/(app)/result', params: { historyId: id } });
+    },
+    [router],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#F3F7F0]">
       <View className="flex-1 px-6 pt-8 pb-4">
-        {isViewingSavedResult ? (
+        {isDetailView ? (
           <View className="mb-4 flex-row items-center justify-between">
             <TouchableOpacity
               className="h-11 w-11 items-center justify-center rounded-full border border-[#E5E7EB] bg-white"
               activeOpacity={0.8}
-              onPress={handleBack}
+              onPress={handleBackToList}
               accessibilityRole="button"
               accessibilityLabel="Kembali"
             >
               <FontAwesome6 name="chevron-left" size={18} color="#1A770A" />
             </TouchableOpacity>
             <Text className="flex-1 text-center text-xl font-montserrat-bold text-[#0F2E04]">
-              Hasil Rekomendasi
+              Detail Rekomendasi
             </Text>
             <View className="h-11 w-11" />
           </View>
-        ) : null}
+        ) : (
+          <View className="mb-4 items-center">
+            <Text className="text-center text-xl font-montserrat-bold text-[#0F2E04]">
+              Riwayat Rekomendasi
+            </Text>
+          </View>
+        )}
+
         <View className="mb-5 rounded-3xl bg-[#13360A] p-4 shadow-lg shadow-black/10">
-          <Text className="text-lg font-montserrat-bold text-white">Hasil Rekomendasi</Text>
+          <Text className="text-lg font-montserrat-bold text-white">
+            {isDetailView ? 'Hasil Rekomendasi' : 'Riwayat Rekomendasi'}
+          </Text>
           <Text className="mt-1 font-montserrat text-sm text-[#E6F4E6]">
-            Alternatif minuman lebih sehat berdasarkan analisis Anda.
+            {isDetailView
+              ? 'Alternatif produk yang lebih sehat berdasarkan analisis Anda.'
+              : 'Pilih salah satu riwayat untuk melihat detail rekomendasi.'}
           </Text>
         </View>
 
@@ -238,50 +306,101 @@ export default function ResultScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 12, paddingBottom: 140 }}
         >
-          {isViewingSavedResult && isHistoryLoading ? (
+          {isDetailView ? (
+            detailLoading ? (
+              <View className="items-center justify-center rounded-3xl bg-white p-6 shadow-sm shadow-black/5">
+                <ActivityIndicator size="large" color="#1A770A" />
+                <Text className="mt-3 font-montserrat text-sm text-[#6B7280]">
+                  Memuat detail rekomendasi...
+                </Text>
+              </View>
+            ) : detailError ? (
+              <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
+                <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">
+                  Gagal Memuat
+                </Text>
+                <Text className="font-montserrat text-sm text-[#6B7280]">{detailError}</Text>
+              </View>
+            ) : detailResult ? (
+              <>
+                {detailRow?.used_query ? (
+                  <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
+                    <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">Query</Text>
+                    <Text className="font-montserrat text-sm text-[#374151]">
+                      {detailRow.used_query}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {detailResult.assessment_summary ? (
+                  <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
+                    <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">
+                      Penilaian Produk
+                    </Text>
+                    <Text className="font-montserrat text-sm text-[#374151]">
+                      {detailResult.assessment_summary}
+                    </Text>
+                    {!!detailResult.assessment_reasons?.length && (
+                      <View className="mt-2 gap-1">
+                        {detailResult.assessment_reasons.map((reason, idx) => (
+                          <Text key={idx} className="font-montserrat text-sm text-[#374151]">
+                            - {reason}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : null}
+
+                {detailResult.answer?.summary ? (
+                  <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
+                    <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">Ringkasan</Text>
+                    <Text className="font-montserrat text-sm text-[#374151]">
+                      {detailResult.answer.summary}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {recommendations.length ? (
+                  <View className="gap-3">
+                    {recommendations.map((item) => (
+                      <RecommendationCard key={item.rank} item={item} />
+                    ))}
+                  </View>
+                ) : (
+                  <Text className="font-montserrat text-sm text-[#6B7280]">
+                    Tidak ada rekomendasi yang tersedia.
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text className="font-montserrat text-sm text-[#6B7280]">
+                Tidak ada data untuk ditampilkan.
+              </Text>
+            )
+          ) : listLoading ? (
             <View className="items-center justify-center rounded-3xl bg-white p-6 shadow-sm shadow-black/5">
               <ActivityIndicator size="large" color="#1A770A" />
               <Text className="mt-3 font-montserrat text-sm text-[#6B7280]">
                 Memuat riwayat rekomendasi...
               </Text>
             </View>
-          ) : historyError ? (
+          ) : listError ? (
             <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
               <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">
                 Gagal Memuat
               </Text>
-              <Text className="font-montserrat text-sm text-[#6B7280]">{historyError}</Text>
+              <Text className="font-montserrat text-sm text-[#6B7280]">{listError}</Text>
             </View>
-          ) : displayedResult ? (
-            <>
-              {displayedResult.answer?.summary ? (
-                <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
-                  <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">Ringkasan</Text>
-                  <Text className="font-montserrat text-sm text-[#374151]">
-                    {displayedResult.answer.summary}
-                  </Text>
-                </View>
-              ) : null}
-
-              {recommendations.length ? (
-                <View className="gap-3">
-                  {recommendations.map((item) => (
-                    <RecommendationCard key={item.rank} item={item} />
-                  ))}
-                </View>
-              ) : (
-                <Text className="font-montserrat text-sm text-[#6B7280]">
-                  Tidak ada rekomendasi yang tersedia.
-                </Text>
-              )}
-            </>
-          ) : isViewingSavedResult ? (
-            <Text className="font-montserrat text-sm text-[#6B7280]">
-              Belum ada rekomendasi tersimpan. Silakan lakukan pencarian terlebih dahulu.
-            </Text>
+          ) : historyRows.length ? (
+            <View className="gap-3">
+              {historyRows.map((row) => (
+                <HistoryCard key={row.id} row={row} onPress={() => handleOpenDetail(row.id)} />
+              ))}
+            </View>
           ) : (
             <Text className="font-montserrat text-sm text-[#6B7280]">
-              Tidak ada data untuk ditampilkan. Silakan kirim pencarian manual terlebih dahulu.
+              Belum ada rekomendasi tersimpan. Silakan lakukan pencarian terlebih dahulu.
             </Text>
           )}
         </ScrollView>
