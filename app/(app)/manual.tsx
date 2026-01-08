@@ -440,40 +440,6 @@ export default function ManualScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View className="mb-6 flex-row items-stretch gap-3">
-              <View className="h-12 flex-1 flex-row items-center rounded-[20px] border border-[#D6E4D6] bg-[#F5F7F4] px-2">
-                <TextInput
-                  className="h-full flex-1 font-montserrat text-sm text-[#111111]"
-                  placeholder="Temukan alternatif yang lebih sehat"
-                  placeholderTextColor="#9CA3AF"
-                  value={searchText}
-                  onChangeText={setSearchText}
-                  returnKeyType="search"
-                  textAlignVertical="center"
-                  style={{ paddingVertical: 0 }}
-                />
-              </View>
-              <TouchableOpacity
-                className="h-12 flex-row items-center justify-center gap-2 rounded-[20px] bg-[#1A770A] px-5"
-                activeOpacity={0.9}
-                onPress={handleManualSubmit}
-                disabled={isSubmitting}
-                style={{ opacity: isSubmitting ? 0.8 : 1 }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text className="font-montserrat-bold text-sm text-white">Memproses...</Text>
-                  </>
-                ) : (
-                  <>
-                    <FontAwesome6 name="magnifying-glass" size={14} color="#FFFFFF" />
-                    <Text className="font-montserrat-bold text-sm text-white">Cari</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-
             <View className="gap-5 rounded-3xl bg-white py-4 px-[18px]" style={cardShadowStyle}>
               <View className="gap-2">
                 <Text className="font-montserrat-bold text-sm text-[#111111]">Nama Produk</Text>
@@ -559,6 +525,26 @@ export default function ManualScreen() {
               <Text className="font-montserrat-bold text-[15px] text-white">
                 Tambahkan lebih banyak nutrisi
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="mt-4 flex-row items-center justify-center gap-2 rounded-[20px] bg-[#1A770A] px-5 py-3"
+              activeOpacity={0.9}
+              onPress={handleManualSubmit}
+              disabled={isSubmitting}
+              style={{ opacity: isSubmitting ? 0.8 : 1 }}
+            >
+              {isSubmitting ? (
+                <>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text className="font-montserrat-bold text-sm text-white">Memproses...</Text>
+                </>
+              ) : (
+                <>
+                  <FontAwesome6 name="magnifying-glass" size={14} color="#FFFFFF" />
+                  <Text className="font-montserrat-bold text-sm text-white">Cari</Text>
+                </>
+              )}
             </TouchableOpacity>
           </ScrollView>
         </View>
