@@ -31,6 +31,13 @@
           "compileSdkVersion": 36,
           "targetSdkVersion": 36,
           "buildToolsVersion": "36.0.0"
+        },
+        "ios": {
+          "infoPlist": {
+            "NSAppTransportSecurity": {
+              "NSAllowsArbitraryLoads": true
+            }
+          }
         }
       }],
       "expo-router",
@@ -45,8 +52,7 @@
       ],
       "expo-font",
       "expo-asset",
-      "expo-web-browser",
-      "expo-build-properties"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
