@@ -325,7 +325,7 @@ export default function ResultScreen() {
               <>
                 {detailRow?.used_query ? (
                   <View className="rounded-3xl bg-white p-4 shadow-sm shadow-black/5">
-                    <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">Query</Text>
+                    <Text className="mb-1 font-montserrat-bold text-sm text-[#0F2E04]">Nama Produk</Text>
                     <Text className="font-montserrat text-sm text-[#374151]">
                       {detailRow.used_query}
                     </Text>

@@ -127,8 +127,8 @@ const buildRecommendationHistoryPayload = (
     user_id: userId,
     status: normalizeOptionalString(response.status) ?? 'ok',
     used_query:
-      normalizeOptionalString(response.used_query) ??
-      normalizeOptionalString(fallbackQuery),
+      normalizeOptionalString(fallbackQuery) ??
+      normalizeOptionalString(response.used_query),
     is_safe:
       typeof productAssessment?.is_safe === 'boolean'
         ? productAssessment.is_safe
@@ -159,7 +159,6 @@ const buildRecommendationHistoryPayload = (
 export default function ManualScreen() {
   const router = useRouter();
   const { userId } = useAuth();
-  const [searchText, setSearchText] = useState('');
   const [productName, setProductName] = useState('');
   const [portionSize, setPortionSize] = useState('');
   const [portionUnitIndex, setPortionUnitIndex] = useState(0);
@@ -313,7 +312,6 @@ export default function ManualScreen() {
     }
 
     const trimmedProductName = productName.trim();
-    const trimmedSearchQuery = searchText.trim();
     const trimmedPortionSize = portionSize.trim();
     const portionSizeNumber = trimmedPortionSize ? Number(trimmedPortionSize) : null;
     const normalizedPortionSize =
@@ -348,7 +346,7 @@ export default function ManualScreen() {
     }
 
     const payload = {
-      query: trimmedSearchQuery,
+      query: trimmedProductName,
       product: {
         name: trimmedProductName || null,
         portion: {
@@ -385,7 +383,7 @@ export default function ManualScreen() {
       }
 
       console.log('Manual form submission result:', responseBody);
-      const historyId = await saveRecommendationHistory(responseBody, trimmedSearchQuery);
+      const historyId = await saveRecommendationHistory(responseBody, trimmedProductName);
       if (historyId) {
         router.push({
           pathname: '/(app)/result',
@@ -414,7 +412,6 @@ export default function ManualScreen() {
     productName,
     router,
     saveRecommendationHistory,
-    searchText,
     showModal,
     userProfile,
   ]);
